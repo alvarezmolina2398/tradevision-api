@@ -1,0 +1,25 @@
+{
+  "name": "tradevision",
+  "version": "1.0.0",
+  "description": "API con Fastify para análisis de imágenes",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.31.0",
+  "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "@fastify/multipart": "^9.0.3",
+    "@fastify/swagger": "^9.8.1",
+    "@fastify/swagger-ui": "^6.1.0",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.2.1",
+    "openai": "^7.0.0"
+  }
+}
