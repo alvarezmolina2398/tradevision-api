@@ -3,6 +3,7 @@ import 'dotenv/config';
 export const config = {
   port: Number(process.env.PORT) || 3000,
   host: process.env.HOST || '0.0.0.0',
+  apiKey: process.env.API_KEY,
   // Límites para la subida de imágenes
   upload: {
     maxFileSizeBytes: Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024, // 10 MB por imagen

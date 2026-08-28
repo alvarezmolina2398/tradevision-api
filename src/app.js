@@ -32,6 +32,15 @@ export const buildApp = async (options = {}) => {
         { name: 'health', description: 'Estado del servicio' },
         { name: 'analyze', description: 'Análisis de imágenes' },
       ],
+      components: {
+        securitySchemes: {
+          apiKey: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'x-api-key',
+          },
+        },
+      },
     },
   });
 
