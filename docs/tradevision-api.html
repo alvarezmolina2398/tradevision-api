@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>TradeVision API - Documentacion</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    :root { --ink: #17212b; --muted: #536273; --blue: #0b5cad; --pale: #edf5fc; --line: #d9e2ec; --code: #18202a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; line-height: 1.5; }
+    h1 { margin: 0 0 6px; color: #ffffff; font-size: 28pt; line-height: 1.1; }
+    h2 { margin: 24px 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--blue); color: var(--blue); font-size: 17pt; page-break-after: avoid; }
+    h3 { margin: 17px 0 6px; color: #234b70; font-size: 12.5pt; page-break-after: avoid; }
+    p { margin: 7px 0; }
+    .cover { margin: -18mm -16mm 20px; padding: 38mm 22mm 28mm; background: linear-gradient(135deg, #0b5cad, #123454); color: #dceeff; page-break-after: always; }
+    .cover .subtitle { font-size: 14pt; margin-top: 16px; }
+    .cover .meta { margin-top: 42px; font-size: 10pt; color: #c5def3; }
+    .notice { padding: 10px 12px; background: #fff5db; border-left: 4px solid #e1a600; }
+    .endpoint { margin: 14px 0 20px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 5px; page-break-inside: avoid; }
+    .method { display: inline-block; min-width: 55px; padding: 3px 7px; border-radius: 3px; background: #16805c; color: #fff; font-weight: bold; font-size: 9pt; text-align: center; }
+    .path { margin-left: 8px; color: #183b5c; font-family: Consolas, monospace; font-weight: bold; }
+    code, pre { font-family: Consolas, "Courier New", monospace; }
+    code { padding: 1px 4px; background: #eef2f6; border-radius: 3px; }
+    pre { padding: 11px 13px; overflow-wrap: anywhere; background: var(--code); color: #eff6ff; border-radius: 4px; font-size: 8.5pt; line-height: 1.45; white-space: pre-wrap; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; page-break-inside: avoid; }
+    th, td { padding: 6px 7px; border: 1px solid var(--line); vertical-align: top; text-align: left; }
+    th { background: var(--pale); color: #234b70; }
+    .small { color: var(--muted); font-size: 9pt; }
+    .footer { margin-top: 28px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 8.5pt; }
+    ul { margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <h1>TradeVision API</h1>
+    <div class="subtitle">Documentacion de integracion</div>
+    <div class="meta">API de analisis visual de establecimientos comerciales<br>Version 1.0 | 28 de agosto de 2026</div>
+  </section>
+
+  <h2>1. Informacion general</h2>
+  <p>La API analiza una o varias imagenes de un establecimiento y estima metricas comerciales, inventario, herramientas de trabajo, gastos, utilidad y puntuaciones visuales.</p>
+  <table>
+    <tr><th>URL base</th><td><code>https://innova.genesisempresarial.com/genesis-estimator</code></td></tr>
+    <tr><th>Formato</th><td>JSON para respuestas; <code>multipart/form-data</code> para el analisis.</td></tr>
+    <tr><th>Autenticacion</th><td>Header <code>x-api-key</code>, requerido unicamente en <code>/analyze</code>.</td></tr>
+    <tr><th>Documentacion interactiva</th><td><code>https://innova.genesisempresarial.com/genesis-estimator/docs</code></td></tr>
+  </table>
+  <div class="notice"><strong>Seguridad:</strong> la clave API no se incluye en este documento. Guardala en una variable de entorno o en el gestor de secretos de tu plataforma. Como la clave fue compartida en una conversacion, se recomienda revocarla y generar una nueva.</div>
+
+  <h2>2. Estado del servicio</h2>
+  <div class="endpoint"><span class="method">GET</span><span class="path">/health</span>
+    <p>Endpoint publico para comprobar que el servicio esta disponible. No requiere API key.</p>
+    <pre>curl https://innova.genesisempresarial.com/genesis-estimator/health</pre>
+    <pre>{
+  "status": "ok",
+  "uptime": 1234.56,
+  "timestamp": "2026-08-28T12:00:00.000Z"
+}</pre>
+  </div>
+
+  <h2>3. Analisis de establecimiento</h2>
+  <div class="endpoint"><span class="method">POST</span><span class="path">/analyze</span>
+    <p>Analiza imagenes del establecimiento. Requiere una API key valida y una peticion <code>multipart/form-data</code>.</p>
+    <h3>Headers</h3>
+    <table><tr><th>Header</th><th>Valor</th><th>Obligatorio</th></tr>
+      <tr><td><code>x-api-key</code></td><td>Tu clave privada de consumo</td><td>Si</td></tr>
+      <tr><td><code>Content-Type</code></td><td>Se genera automaticamente como multipart/form-data</td><td>Si</td></tr>
+    </table>
+    <h3>Campos del formulario</h3>
+    <table><tr><th>Campo</th><th>Tipo</th><th>Obligatorio</th><th>Descripcion</th></tr>
+      <tr><td><code>productType</code></td><td>Texto</td><td>Si</td><td>Tipo de producto o negocio esperado.</td></tr>
+      <tr><td><code>specialObservations</code></td><td>Texto</td><td>No</td><td>Contexto adicional, por ejemplo condiciones del terreno, acceso o ubicacion, para ajustar las estimaciones.</td></tr>
+      <tr><td><code>images</code></td><td>Archivo, repetible</td><td>Si</td><td>Imagenes JPEG, PNG, WEBP o GIF.</td></tr>
+    </table>
+    <p class="small">Limites actuales: hasta 10 imagenes por solicitud y 10 MB por imagen.</p>
+    <h3>Ejemplo con cURL</h3>
+    <pre>curl -X POST \
+  "https://innova.genesisempresarial.com/genesis-estimator/analyze" \
+  -H "x-api-key: TU_API_KEY" \
+  -F "productType=abarrotes" \
+  -F "specialObservations=Ubicado en una aldea; acceso de terraceria durante la lluvia" \
+  -F "images=@./local.jpg" \
+  -F "images=@./interior.png"</pre>
+  </div>
+
+  <h2>4. Respuesta exitosa</h2>
+  <pre>{
+  "status": true,
+  "message": "análisis completado exitosamente",
+  "details": {
+    "matchesExpectedProductType": true,
+    "estimatedMinimumRevenue": 5000,
+    "estimatedExpectedRevenue": 8000,
+    "estimatedMaximumRevenue": 12000,
+    "estimatedAverageTicket": 35,
+    "estimatedInventoryValue": 18000,
+    "inventoryItems": [
+      { "name": "Bebidas", "quantity": 24, "unitPrice": 8, "subtotal": 192 }
+    ],
+    "estimatedWorkToolsValue": 4500,
+    "workTools": [
+      { "description": "Refrigerador", "quantity": 1, "unitPrice": 4500, "approximatePrice": 4500 }
+    ],
+    "estimatedMonthlyExpenses": 5200,
+    "estimatedMonthlyProfit": 2800,
+    "productType": "Tienda de abarrotes",
+    "cleanlinessScore": 82,
+    "stockingScore": 76,
+    "organizationScore": 80,
+    "visibilityScore": 74,
+    "overallStoreScore": 78
+  }
+}</pre>
+  <p>Los importes son estimaciones en quetzales guatemaltecos. Los campos de puntuacion son enteros de 0 a 100.</p>
+
+  <h2>5. Errores</h2>
+  <table><tr><th>Codigo</th><th>Significado</th><th>Causa habitual</th></tr>
+    <tr><td><code>400 Bad Request</code></td><td>Solicitud invalida</td><td>Falta multipart, imagenes o <code>productType</code>.</td></tr>
+    <tr><td><code>401 Unauthorized</code></td><td>API key invalida o ausente</td><td>Header <code>x-api-key</code> incorrecto o no enviado.</td></tr>
+    <tr><td><code>413 Payload Too Large</code></td><td>Payload excedido</td><td>Mas de 10 archivos o una imagen mayor a 10 MB.</td></tr>
+    <tr><td><code>415 Unsupported Media Type</code></td><td>Tipo no permitido</td><td>La imagen no es JPEG, PNG, WEBP o GIF.</td></tr>
+    <tr><td><code>422 Unprocessable Entity</code></td><td>Tipo no relacionado</td><td>Las imagenes no corresponden al <code>productType</code> indicado.</td></tr>
+    <tr><td><code>502 Bad Gateway</code></td><td>Error del analisis</td><td>No se pudo completar la comunicacion con el servicio de IA.</td></tr>
+  </table>
+
+  <h2>6. Configuracion del servidor</h2>
+  <p>En produccion define las variables de entorno sin subir el archivo <code>.env</code> al repositorio:</p>
+  <pre>PORT=3000
+HOST=0.0.0.0
+API_KEY=TU_API_KEY
+OPENAI_API_KEY=TU_OPENAI_API_KEY
+OPENAI_MODEL=gpt-4o</pre>
+  <p>El proceso se inicia con:</p>
+  <pre>pnpm start</pre>
+  <p>Si se ejecuta con systemd, el servicio debe cargar el archivo de entorno y arrancar <code>src/server.js</code>.</p>
+
+  <h2>7. Recomendaciones de consumo</h2>
+  <ul>
+    <li>Usa siempre HTTPS y no expongas la API key en aplicaciones frontend publicas.</li>
+    <li>Envia imagenes enfocadas, legibles y relevantes para mejorar la estimacion.</li>
+    <li>No registres el header <code>x-api-key</code> en logs.</li>
+    <li>Rota la API key si fue compartida, comprometida o incluida accidentalmente en un repositorio.</li>
+  </ul>
+  <div class="footer">TradeVision API | Documento de integracion | URL base: https://innova.genesisempresarial.com/genesis-estimator</div>
+</body>
+</html>

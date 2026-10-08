@@ -10,7 +10,8 @@ abarrotes, changarros, puestos de mercado y pequeños negocios). Tu tarea es ana
 un establecimiento a partir de una o varias imágenes y estimar su desempeño comercial.
 
 Reglas de análisis:
-- Basa TODAS tus conclusiones únicamente en lo que es visible en las imágenes.
+- Basa las conclusiones sobre el estado físico del establecimiento únicamente en lo visible en las imágenes.
+- Usa las observaciones especiales como contexto adicional para ajustar las estimaciones comerciales que dependan de ellas, como ubicación, acceso o condiciones del terreno. No presentes ese contexto como algo visible en las imágenes ni permitas que sustituya la evidencia visual.
 - El usuario indicará un tipo de producto esperado. Debes verificar si las imágenes tienen relación \
 con ese tipo de producto indicado:
   * matchesExpectedProductType: true si las imágenes muestran un establecimiento o productos \
@@ -147,11 +148,12 @@ const toDataUrl = ({ buffer, mimetype }) =>
  *
  * @param {Array<{ buffer: Buffer, mimetype: string }>} images
  * @param {string} expectedProductType tipo de producto esperado para las imágenes
+ * @param {string} [specialObservations] contexto adicional sobre el terreno o la ubicación
  * @returns {Promise<object>} details con las métricas del análisis
  * @throws {Error} con `statusCode` 422 cuando las imágenes no tienen relación
  *   con el tipo de producto indicado.
  */
-export const analyzeStoreImages = async (images, expectedProductType) => {
+export const analyzeStoreImages = async (images, expectedProductType, specialObservations = '') => {
   const openai = getOpenAIClient();
 
   const imageContent = images.map((image) => ({
@@ -168,7 +170,7 @@ export const analyzeStoreImages = async (images, expectedProductType) => {
         content: [
           {
             type: 'text',
-            text: `El tipo de producto esperado es: "${expectedProductType}". Analiza el establecimiento mostrado en estas ${images.length} imagen(es), verifica si tienen relación con ese tipo de producto y devuelve las métricas comerciales.`,
+            text: `El tipo de producto esperado es: "${expectedProductType}".\nObservaciones especiales proporcionadas por el usuario: ${specialObservations || 'Ninguna.'}\nAnaliza el establecimiento mostrado en estas ${images.length} imagen(es), verifica si tienen relación con el tipo de producto esperado y devuelve las métricas comerciales. Considera las observaciones al estimar el impacto comercial del contexto, sin tratarlas como evidencia visual.`,
           },
           ...imageContent,
         ],

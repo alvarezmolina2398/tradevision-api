@@ -34,21 +34,25 @@ const validateApiKey = async (request, reply) => {
 
 /**
  * Recorre las partes recibidas en la petición multipart: valida y carga las
- * imágenes en memoria y captura el campo `productType` (tipo de producto esperado).
+ * imágenes en memoria y captura los campos `productType` y `specialObservations`.
  *
  * @param {import('fastify').FastifyRequest} request
- * @returns {Promise<{ images: Array<{ filename: string, mimetype: string, buffer: Buffer }>, expectedProductType: string }>}
+ * @returns {Promise<{ images: Array<{ filename: string, mimetype: string, buffer: Buffer }>, expectedProductType: string, specialObservations: string }>}
  * @throws {Error} con `statusCode` y `message` cuando una imagen no es válida o
  *   se superan los límites de subida.
  */
 const collectMultipart = async (request) => {
   const images = [];
   let expectedProductType = '';
+  let specialObservations = '';
 
   for await (const part of request.parts()) {
     if (part.type === 'field') {
       if (part.fieldname === 'productType' && typeof part.value === 'string') {
         expectedProductType = part.value.trim();
+      }
+      if (part.fieldname === 'specialObservations' && typeof part.value === 'string') {
+        specialObservations = part.value.trim();
       }
       continue;
     }
@@ -67,7 +71,7 @@ const collectMultipart = async (request) => {
     });
   }
 
-  return { images, expectedProductType };
+  return { images, expectedProductType, specialObservations };
 };
 
 // Esquema de la ruta (documentación OpenAPI y validación de la respuesta).
@@ -153,9 +157,10 @@ export const analyzeRoutes = async (app) => {
 
       let images;
       let expectedProductType;
+      let specialObservations;
 
       try {
-        ({ images, expectedProductType } = await collectMultipart(request));
+        ({ images, expectedProductType, specialObservations } = await collectMultipart(request));
       } catch (err) {
         request.log.error(err);
 
@@ -195,7 +200,7 @@ export const analyzeRoutes = async (app) => {
       }
 
       try {
-        const details = await analyzeStoreImages(images, expectedProductType);
+        const details = await analyzeStoreImages(images, expectedProductType, specialObservations);
 
         return reply.code(200).send({
           status: true,
