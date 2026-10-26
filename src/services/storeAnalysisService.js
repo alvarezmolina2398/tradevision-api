@@ -34,6 +34,26 @@ visibles, y el poder adquisitivo típico de Aldeas o Municipios de Guatemala. De
 - estimatedInventoryValue: valor monetario aproximado del inventario (mercancía) visible en las \
 imágenes, expresado en quetzales Guatemaltecos. Estima de forma prudente el valor total de los \
 artículos observados en estantes, vitrinas y exhibidores, considerando los precios locales de mercado.
+- Para estimar la rotación del inventario, toma en cuenta conjuntamente productType, \
+estimatedAverageTicket, estimatedExpectedRevenue, la mezcla/cantidades de productos visibles y lo \
+que normalmente vende ese giro. Ajusta el volumen de ventas y transacciones al tamaño de un \
+micronegocio o negocio pequeño ubicado en una aldea o municipio de Guatemala; no uses como referencia \
+el flujo de clientes o las ventas de un comercio urbano grande. Usa estimatedExpectedRevenue como \
+venta mensual esperada y estimatedAverageTicket para comprobar cuántas transacciones mensuales \
+implicaría ese nivel de venta y si resulta razonable para ese negocio rural.
+- estimatedInventoryCoverageDays: días aproximados que rendiría el inventario visible al ritmo de \
+consumo mensual estimado para ese giro y tamaño de negocio. Calcula la cobertura usando el valor de \
+venta estimado del inventario visible frente a la venta mensual esperada de los productos que \
+provienen de ese inventario, con un mes de 30 días: estimatedInventoryCoverageDays = \
+(estimatedInventoryValue / venta mensual atribuible a ese inventario) * 30. Si el giro mezcla \
+servicios y productos, considera solo la parte de ventas atribuible a productos; no cuentes servicios \
+como consumo de inventario. Si no se observa inventario vendible o su valor es 0, devuelve 0. \
+Debe ser mayor o igual a 0.
+- estimatedMonthlyInventoryConsumptionPercentage: porcentaje del inventario visible que se \
+consumiría en un mes típico. Este campo se calcula automáticamente a partir de \
+estimatedInventoryCoverageDays usando un mes de 30 días: (30 / días de cobertura) * 100. Puede \
+superar 100 si el inventario dura menos de 30 días. Si no se observa inventario vendible o la \
+cobertura es 0, devuelve 0. Debe ser mayor o igual a 0.
 - inventoryItems: listado de los artículos o grupos de productos que tomaste en cuenta para calcular \
 estimatedInventoryValue. Para cada artículo incluye: name (nombre o categoría del producto), \
 quantity (cantidad aproximada de unidades observadas), unitPrice (precio unitario estimado en \
@@ -77,6 +97,8 @@ const RESPONSE_SCHEMA = {
     'estimatedMaximumRevenue',
     'estimatedAverageTicket',
     'estimatedInventoryValue',
+    'estimatedInventoryCoverageDays',
+    'estimatedMonthlyInventoryConsumptionPercentage',
     'inventoryItems',
     'estimatedWorkToolsValue',
     'workTools',
@@ -96,6 +118,8 @@ const RESPONSE_SCHEMA = {
     estimatedMaximumRevenue: { type: 'number' },
     estimatedAverageTicket: { type: 'number', minimum: 0 },
     estimatedInventoryValue: { type: 'number', minimum: 0 },
+    estimatedInventoryCoverageDays: { type: 'number', minimum: 0 },
+    estimatedMonthlyInventoryConsumptionPercentage: { type: 'number', minimum: 0 },
     inventoryItems: {
       type: 'array',
       items: {
@@ -193,6 +217,11 @@ export const analyzeStoreImages = async (images, expectedProductType, specialObs
   }
 
   const details = JSON.parse(content);
+
+  details.estimatedMonthlyInventoryConsumptionPercentage =
+    details.estimatedInventoryCoverageDays > 0
+      ? (30 / details.estimatedInventoryCoverageDays) * 100
+      : 0;
 
   if (details.matchesExpectedProductType === false) {
     throw Object.assign(

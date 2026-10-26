@@ -1,6 +1,8 @@
 import { timingSafeEqual } from 'node:crypto';
 
 import { config } from '../config.js';
+import { BUSINESS_FLOWS, classifyBusinessFlow } from '../services/businessFlowClassifier.js';
+import { analyzeCropImages } from '../services/cropAnalysisService.js';
 import { analyzeStoreImages } from '../services/storeAnalysisService.js';
 
 // Códigos de error que emite @fastify/multipart al superar los límites configurados.
@@ -74,13 +76,136 @@ const collectMultipart = async (request) => {
   return { images, expectedProductType, specialObservations };
 };
 
+// Detalle del flujo tradicional (businessFlow = "traditional"); sin cambios respecto al original.
+const traditionalDetailsSchema = {
+  type: 'object',
+  properties: {
+    matchesExpectedProductType: { type: 'boolean' },
+    estimatedMinimumRevenue: { type: 'number' },
+    estimatedExpectedRevenue: { type: 'number' },
+    estimatedMaximumRevenue: { type: 'number' },
+    estimatedAverageTicket: { type: 'number' },
+    estimatedInventoryValue: { type: 'number' },
+    estimatedInventoryCoverageDays: { type: 'number' },
+    estimatedMonthlyInventoryConsumptionPercentage: { type: 'number' },
+    inventoryItems: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          quantity: { type: 'number' },
+          unitPrice: { type: 'number' },
+          subtotal: { type: 'number' },
+        },
+      },
+    },
+    estimatedWorkToolsValue: { type: 'number' },
+    workTools: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          description: { type: 'string' },
+          quantity: { type: 'number' },
+          unitPrice: { type: 'number' },
+          approximatePrice: { type: 'number' },
+        },
+      },
+    },
+    estimatedMonthlyExpenses: { type: 'number' },
+    estimatedMonthlyProfit: { type: 'number' },
+    productType: { type: 'string' },
+    cleanlinessScore: { type: 'integer' },
+    stockingScore: { type: 'integer' },
+    organizationScore: { type: 'integer' },
+    visibilityScore: { type: 'integer' },
+    overallStoreScore: { type: 'integer' },
+  },
+};
+
+// Detalle del flujo de cultivos (businessFlow = "crop").
+const cropDetailsSchema = {
+  type: 'object',
+  // `required` permite al serializador distinguir este esquema del tradicional.
+  required: ['mainSalesUnit'],
+  properties: {
+    mainSalesUnit: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        description: { type: 'string' },
+      },
+    },
+    matchesExpectedProductType: { type: 'boolean' },
+    cropType: { type: 'string' },
+    productPresentation: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        description: { type: 'string' },
+      },
+    },
+    recentProductionPrices: {
+      type: 'object',
+      properties: {
+        minimum: { type: 'number' },
+        maximum: { type: 'number' },
+        average: { type: 'number' },
+      },
+    },
+    harvestCycle: {
+      type: 'object',
+      properties: {
+        minimumDays: { type: 'integer' },
+        maximumDays: { type: 'integer' },
+        description: { type: 'string' },
+      },
+    },
+    careDetails: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          activity: { type: 'string' },
+          description: { type: 'string' },
+          frequency: { type: 'string' },
+          estimatedCost: { type: 'number' },
+        },
+      },
+    },
+    minimumExpectedExpenses: { type: 'number' },
+    expectedProduction: {
+      type: 'object',
+      properties: {
+        minimum: { type: 'number' },
+        maximum: { type: 'number' },
+      },
+    },
+    localMarketHealth: {
+      type: 'object',
+      properties: {
+        score: { type: 'integer' },
+        status: { type: 'string' },
+        description: { type: 'string' },
+      },
+    },
+    riskPercentage: { type: 'integer' },
+    riskFactors: { type: 'array', items: { type: 'string' } },
+    plantHealthPercentage: { type: 'integer' },
+    landCleanlinessPercentage: { type: 'integer' },
+  },
+};
+
 // Esquema de la ruta (documentación OpenAPI y validación de la respuesta).
 const analyzeSchema = {
   tags: ['analyze'],
-  summary: 'Analiza una o varias imágenes de un establecimiento con IA',
+  summary: 'Analiza una o varias imágenes de un establecimiento o cultivo con IA',
   description:
-    'Recibe imágenes de un negocio y un agente experto en comercios y ' +
-    'microemprendimientos estima métricas comerciales a partir del análisis visual.',
+    'Recibe imágenes de un negocio. Primero se clasifica el flujo según el motivo del negocio ' +
+    'y las imágenes: "traditional" (comercios y microemprendimientos, métricas comerciales) o ' +
+    '"crop" (cultivos, métricas productivas y de mercado). El campo `businessFlow` indica el ' +
+    'flujo aplicado y la forma de `details`.',
   consumes: ['multipart/form-data'],
   response: {
     200: {
@@ -88,49 +213,12 @@ const analyzeSchema = {
       properties: {
         status: { type: 'boolean' },
         message: { type: 'string' },
+        businessFlow: { type: 'string', enum: Object.values(BUSINESS_FLOWS) },
         details: {
-          type: 'object',
-          properties: {
-            matchesExpectedProductType: { type: 'boolean' },
-            estimatedMinimumRevenue: { type: 'number' },
-            estimatedExpectedRevenue: { type: 'number' },
-            estimatedMaximumRevenue: { type: 'number' },
-            estimatedAverageTicket: { type: 'number' },
-            estimatedInventoryValue: { type: 'number' },
-            inventoryItems: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  quantity: { type: 'number' },
-                  unitPrice: { type: 'number' },
-                  subtotal: { type: 'number' },
-                },
-              },
-            },
-            estimatedWorkToolsValue: { type: 'number' },
-            workTools: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  description: { type: 'string' },
-                  quantity: { type: 'number' },
-                  unitPrice: { type: 'number' },
-                  approximatePrice: { type: 'number' },
-                },
-              },
-            },
-            estimatedMonthlyExpenses: { type: 'number' },
-            estimatedMonthlyProfit: { type: 'number' },
-            productType: { type: 'string' },
-            cleanlinessScore: { type: 'integer' },
-            stockingScore: { type: 'integer' },
-            organizationScore: { type: 'integer' },
-            visibilityScore: { type: 'integer' },
-            overallStoreScore: { type: 'integer' },
-          },
+          anyOf: [
+            cropDetailsSchema,
+            traditionalDetailsSchema,
+          ],
         },
       },
     },
@@ -200,11 +288,20 @@ export const analyzeRoutes = async (app) => {
       }
 
       try {
-        const details = await analyzeStoreImages(images, expectedProductType, specialObservations);
+        const { flow, reason } = await classifyBusinessFlow(
+          images,
+          expectedProductType,
+          specialObservations
+        );
+        request.log.info({ businessFlow: flow, reason }, 'Flujo de análisis seleccionado');
+
+        const analyze = flow === BUSINESS_FLOWS.CROP ? analyzeCropImages : analyzeStoreImages;
+        const details = await analyze(images, expectedProductType, specialObservations);
 
         return reply.code(200).send({
           status: true,
           message: 'análisis completado exitosamente',
+          businessFlow: flow,
           details,
         });
       } catch (err) {

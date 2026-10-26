@@ -38,7 +38,11 @@
   </section>
 
   <h2>1. Informacion general</h2>
-  <p>La API analiza una o varias imagenes de un establecimiento y estima metricas comerciales, inventario, herramientas de trabajo, gastos, utilidad y puntuaciones visuales.</p>
+  <p>La API analiza una o varias imagenes de un negocio. Segun el motivo del negocio y las imagenes, aplica uno de dos flujos:</p>
+  <ul>
+    <li><strong>Tradicional</strong> (<code>businessFlow: "traditional"</code>): comercios y microemprendimientos. Estima metricas comerciales, inventario, herramientas de trabajo, gastos, utilidad y puntuaciones visuales.</li>
+    <li><strong>Cultivos</strong> (<code>businessFlow: "crop"</code>): produccion agricola. Estima unidad de venta, precios, ciclo de cosecha, cuidados, gastos, produccion esperada, mercado local, riesgo, salud de las plantas y limpieza del terreno.</li>
+  </ul>
   <table>
     <tr><th>URL base</th><td><code>https://innova.genesisempresarial.com/genesis-estimator</code></td></tr>
     <tr><th>Formato</th><td>JSON para respuestas; <code>multipart/form-data</code> para el analisis.</td></tr>
@@ -60,7 +64,7 @@
 
   <h2>3. Analisis de establecimiento</h2>
   <div class="endpoint"><span class="method">POST</span><span class="path">/analyze</span>
-    <p>Analiza imagenes del establecimiento. Requiere una API key valida y una peticion <code>multipart/form-data</code>.</p>
+    <p>Analiza imagenes del establecimiento o cultivo. Requiere una API key valida y una peticion <code>multipart/form-data</code>. El flujo (tradicional o cultivos) se determina automaticamente a partir de <code>productType</code> y de las imagenes; un local que solo revende productos agricolas se trata como negocio tradicional.</p>
     <h3>Headers</h3>
     <table><tr><th>Header</th><th>Valor</th><th>Obligatorio</th></tr>
       <tr><td><code>x-api-key</code></td><td>Tu clave privada de consumo</td><td>Si</td></tr>
@@ -68,8 +72,8 @@
     </table>
     <h3>Campos del formulario</h3>
     <table><tr><th>Campo</th><th>Tipo</th><th>Obligatorio</th><th>Descripcion</th></tr>
-      <tr><td><code>productType</code></td><td>Texto</td><td>Si</td><td>Tipo de producto o negocio esperado.</td></tr>
-      <tr><td><code>specialObservations</code></td><td>Texto</td><td>No</td><td>Contexto adicional, por ejemplo condiciones del terreno, acceso o ubicacion, para ajustar las estimaciones.</td></tr>
+      <tr><td><code>productType</code></td><td>Texto</td><td>Si</td><td>Tipo de producto, negocio o cultivo esperado (motivo del negocio).</td></tr>
+      <tr><td><code>specialObservations</code></td><td>Texto</td><td>No</td><td>Contexto adicional, por ejemplo condiciones del terreno, acceso o ubicacion, para ajustar las estimaciones. En cultivos se recomienda indicar la extension del terreno o el numero de plantas.</td></tr>
       <tr><td><code>images</code></td><td>Archivo, repetible</td><td>Si</td><td>Imagenes JPEG, PNG, WEBP o GIF.</td></tr>
     </table>
     <p class="small">Limites actuales: hasta 10 imagenes por solicitud y 10 MB por imagen.</p>
@@ -84,9 +88,12 @@
   </div>
 
   <h2>4. Respuesta exitosa</h2>
+  <p>El campo <code>businessFlow</code> indica el flujo aplicado y determina la forma de <code>details</code>.</p>
+  <h3>4.1 Flujo tradicional</h3>
   <pre>{
   "status": true,
   "message": "análisis completado exitosamente",
+  "businessFlow": "traditional",
   "details": {
     "matchesExpectedProductType": true,
     "estimatedMinimumRevenue": 5000,
@@ -94,6 +101,8 @@
     "estimatedMaximumRevenue": 12000,
     "estimatedAverageTicket": 35,
     "estimatedInventoryValue": 18000,
+    "estimatedInventoryCoverageDays": 67.5,
+    "estimatedMonthlyInventoryConsumptionPercentage": 44.4,
     "inventoryItems": [
       { "name": "Bebidas", "quantity": 24, "unitPrice": 8, "subtotal": 192 }
     ],
@@ -111,7 +120,45 @@
     "overallStoreScore": 78
   }
 }</pre>
-  <p>Los importes son estimaciones en quetzales guatemaltecos. Los campos de puntuacion son enteros de 0 a 100.</p>
+  <p>Los importes son estimaciones en quetzales guatemaltecos. Para estimar la rotación, la API considera el giro, el ticket promedio, las ventas mensuales esperadas, los productos visibles y el tamaño típico de un micronegocio o negocio pequeño en una aldea o municipio, no de un comercio urbano grande. <code>estimatedInventoryCoverageDays</code> estima cuántos días duraría el inventario visible; el modelo lo estima considerando el ritmo de venta mensual atribuible a esos productos. <code>estimatedMonthlyInventoryConsumptionPercentage</code> se calcula a partir de los días estimados con un mes de 30 días: (30 / días de cobertura) × 100. Así los campos son coherentes entre sí; el porcentaje puede superar 100 si el inventario duraría menos de un mes. Si no hay inventario vendible visible, ambos son 0. Son aproximaciones, no datos de ventas observadas. En el ejemplo, Q18,000 de inventario frente a Q8,000 de ventas mensuales atribuibles representan 67.5 días de cobertura y aproximadamente 44.4% de consumo mensual. Los campos de puntuación son enteros de 0 a 100.</p>
+  <h3>4.2 Flujo de cultivos</h3>
+  <p class="small">Valores ilustrativos; no son cotizaciones reales. El precio mostrado representa venta minorista rural al consumidor final.</p>
+  <pre>{
+  "status": true,
+  "message": "análisis completado exitosamente",
+  "businessFlow": "crop",
+  "details": {
+    "mainSalesUnit": { "name": "quintal", "description": "100 libras" },
+    "matchesExpectedProductType": true,
+    "cropType": "Maíz",
+    "productPresentation": { "name": "Grano seco", "description": "Presentación común estimada para venta minorista rural." },
+    "recentProductionPrices": { "minimum": 150, "maximum": 260, "average": 200 },
+    "harvestCycle": { "minimumDays": 110, "maximumDays": 150, "description": "1 a 2 ciclos por año" },
+    "careDetails": [
+      { "activity": "Limpia", "description": "Deshierbe manual", "frequency": "2 por ciclo", "estimatedCost": 400 }
+    ],
+    "minimumExpectedExpenses": 2500,
+    "expectedProduction": { "minimum": 20, "maximum": 35 },
+    "localMarketHealth": { "score": 70, "status": "favorable", "description": "Demanda estable" },
+    "riskPercentage": 35,
+    "riskFactors": ["Sequía"],
+    "plantHealthPercentage": 80,
+    "landCleanlinessPercentage": 65
+  }
+}</pre>
+  <table><tr><th>Campo</th><th>Descripcion</th></tr>
+    <tr><td><code>mainSalesUnit</code></td><td>Unidad de venta principal (quintal, arroba, ciento, caja, etc.). Todas las cantidades y precios por unidad se expresan en ella.</td></tr>
+    <tr><td><code>productPresentation</code></td><td>Formato comercial del cultivo. Si se especifica en <code>productType</code> o <code>specialObservations</code>, se respeta; si no, se estima la presentación más común para venta minorista rural. Precios y producción corresponden a esta presentación.</td></tr>
+    <tr><td><code>recentProductionPrices</code></td><td>Precio aproximado de venta al por menor al consumidor final en zonas rurales de Guatemala: minimo, maximo y promedio en quetzales por una unidad de <code>mainSalesUnit</code> (Q/quintal, por ejemplo). Se pueden usar precios del año anterior como referencia comparable, no como cotizacion actual verificada. La API no consulta automaticamente fuentes historicas externas.</td></tr>
+    <tr><td><code>harvestCycle</code></td><td>Tiempo estimado entre ciclos de cosecha, en dias.</td></tr>
+    <tr><td><code>careDetails</code></td><td>Cuidados necesarios por cosecha, con frecuencia y costo estimado (Q).</td></tr>
+    <tr><td><code>minimumExpectedExpenses</code></td><td>Gastos minimos esperados por ciclo de cosecha (Q).</td></tr>
+    <tr><td><code>expectedProduction</code></td><td>Cantidad minima y maxima esperada por ciclo, en la unidad principal.</td></tr>
+    <tr><td><code>localMarketHealth</code></td><td>Salud del producto en el mercado local: puntuacion 0-100, estado (<code>muy favorable</code>, <code>favorable</code>, <code>estable</code>, <code>desfavorable</code>, <code>muy desfavorable</code>) y justificacion.</td></tr>
+    <tr><td><code>riskPercentage</code> / <code>riskFactors</code></td><td>Porcentaje de riesgo (0-100) y principales factores.</td></tr>
+    <tr><td><code>plantHealthPercentage</code></td><td>Porcentaje de salud de las plantas mostradas (0-100).</td></tr>
+    <tr><td><code>landCleanlinessPercentage</code></td><td>Porcentaje de limpieza del terreno (0-100).</td></tr>
+  </table>
 
   <h2>5. Errores</h2>
   <table><tr><th>Codigo</th><th>Significado</th><th>Causa habitual</th></tr>
